@@ -22,7 +22,6 @@ scene.add(new THREE.AmbientLight(0xffffff, 0.6));
 const sun = new THREE.DirectionalLight(0xffffff, 1.3);
 sun.position.set(10, 20, 10);
 sun.castShadow = true;
-sun.shadow.mapSize.set(2048, 2048);
 scene.add(sun);
 
 /* ================= GROUND ================= */
@@ -35,9 +34,9 @@ ground.receiveShadow = true;
 scene.add(ground);
 
 /* ================= CONTROLS ================= */
-const keys = { w: 0, a: 0, s: 0, d: 0 };
+const keys = { w:0, a:0, s:0, d:0 };
 let speed = 0;
-let rotation = 0;
+let yaw = 0;
 
 window.addEventListener('keydown', e => {
   if (keys[e.key.toLowerCase()] !== undefined) keys[e.key.toLowerCase()] = 1;
@@ -48,64 +47,78 @@ window.addEventListener('keyup', e => {
 
 /* ================= LOAD CAR ================= */
 const loader = new GLTFLoader();
-let car;
+let car, body;
 
-loader.load(
-  './car.glb',
-  (gltf) => {
-    car = gltf.scene;
+loader.load('./car.glb', gltf => {
+  car = gltf.scene;
 
-    car.traverse(obj => {
-      if (obj.isMesh) {
-        obj.castShadow = true;
-        obj.receiveShadow = true;
-      }
-    });
+  car.traverse(o => {
+    if (o.isMesh) {
+      o.castShadow = true;
+      o.receiveShadow = true;
+    }
+  });
 
-    car.scale.set(0.4, 0.4, 0.4);
-    car.position.set(0, 0.01, 0);
-    car.rotation.y = Math.PI;
+  car.scale.set(0.4, 0.4, 0.4);
+  car.position.y = 0.01;
+  car.rotation.y = Math.PI;
 
-    scene.add(car);
-    animate();
-  },
-  undefined,
-  err => console.error(err)
-);
+  // Create a parent for suspension effects
+  body = new THREE.Group();
+  body.add(car);
+  scene.add(body);
+
+  animate();
+});
 
 /* ================= UPDATE ================= */
 function update(dt) {
-  if (!car) return;
+  if (!body) return;
 
-  // acceleration
-  if (keys.w) speed += 18 * dt;
-  if (keys.s) speed -= 22 * dt;
+  /* ACCELERATION */
+  if (keys.w) speed += 20 * dt;
+  if (keys.s) speed -= 24 * dt;
 
-  // friction
-  speed *= 0.98;
-  speed = THREE.MathUtils.clamp(speed, -25, 40);
+  /* FRICTION */
+  speed *= 0.97;
+  speed = THREE.MathUtils.clamp(speed, -20, 40);
 
-  // steering
-  if (Math.abs(speed) > 0.1) {
-    if (keys.a) rotation += 1.6 * dt;
-    if (keys.d) rotation -= 1.6 * dt;
+  /* STEERING */
+  if (Math.abs(speed) > 0.2) {
+    if (keys.a) yaw += 1.5 * dt;
+    if (keys.d) yaw -= 1.5 * dt;
   }
 
-  car.rotation.y = rotation;
-  car.position.x -= Math.sin(rotation) * speed * dt;
-  car.position.z -= Math.cos(rotation) * speed * dt;
+  /* MOVE */
+  body.rotation.y = yaw;
+  body.position.x -= Math.sin(yaw) * speed * dt;
+  body.position.z -= Math.cos(yaw) * speed * dt;
 
-  /* CAMERA FOLLOW */
-  const camTarget = car.position.clone().add(
+  /* ================= SUSPENSION ================= */
+  // pitch (forward/back)
+  const pitch = THREE.MathUtils.clamp(-speed * 0.015, -0.25, 0.25);
+
+  // roll (side tilt)
+  const roll = THREE.MathUtils.clamp(
+    (keys.a - keys.d) * speed * 0.01,
+    -0.25,
+    0.25
+  );
+
+  body.rotation.x = THREE.MathUtils.lerp(body.rotation.x, pitch, 0.1);
+  body.rotation.z = THREE.MathUtils.lerp(body.rotation.z, roll, 0.1);
+
+  /* ================= CAMERA FOLLOW ================= */
+  const camTarget = body.position.clone().add(
     new THREE.Vector3(
-      Math.sin(rotation) * 12,
+      Math.sin(yaw) * 12,
       6,
-      Math.cos(rotation) * 12
+      Math.cos(yaw) * 12
     )
   );
 
   camera.position.lerp(camTarget, 0.08);
-  camera.lookAt(car.position.x, car.position.y + 2, car.position.z);
+  camera.lookAt(body.position.x, body.position.y + 2, body.position.z);
 }
 
 /* ================= LOOP ================= */
@@ -125,3 +138,4 @@ window.addEventListener('resize', () => {
   camera.updateProjectionMatrix();
   renderer.setSize(innerWidth, innerHeight);
 });
+
