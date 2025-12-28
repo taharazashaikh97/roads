@@ -4,14 +4,14 @@ import * as THREE from 'three';
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0xbfe3b4);
 
-/* CAMERA */
+/* CAMERA — FIXED */
 const camera = new THREE.PerspectiveCamera(
   60,
   window.innerWidth / window.innerHeight,
   0.1,
   1000
 );
-camera.position.set(6, 5, 10);
+camera.position.set(0, 6, 12);   // HIGHER + BACK
 camera.lookAt(0, 1, 0);
 
 /* RENDERER */
@@ -22,15 +22,14 @@ renderer.shadowMap.enabled = true;
 document.body.appendChild(renderer.domElement);
 
 /* LIGHTS */
-scene.add(new THREE.AmbientLight(0xffffff, 0.4));
+scene.add(new THREE.AmbientLight(0xffffff, 0.5));
 
 const sun = new THREE.DirectionalLight(0xffffff, 1.2);
 sun.position.set(10, 20, 10);
 sun.castShadow = true;
-sun.shadow.mapSize.set(2048, 2048);
 scene.add(sun);
 
-/* GROUND (LIGHT GREEN LAND) */
+/* GROUND */
 const ground = new THREE.Mesh(
   new THREE.PlaneGeometry(200, 200),
   new THREE.MeshStandardMaterial({
@@ -42,7 +41,15 @@ ground.rotation.x = -Math.PI / 2;
 ground.receiveShadow = true;
 scene.add(ground);
 
-/* REALISTIC CAR (SIMPLE BUT GOOD SHAPE) */
+/* DEBUG CUBE (YOU MUST SEE THIS) */
+const cube = new THREE.Mesh(
+  new THREE.BoxGeometry(1, 1, 1),
+  new THREE.MeshStandardMaterial({ color: 0xff0000 })
+);
+cube.position.set(0, 0.5, 0);
+scene.add(cube);
+
+/* CAR */
 const car = new THREE.Group();
 
 /* BODY */
@@ -60,10 +67,7 @@ car.add(body);
 /* CABIN */
 const cabin = new THREE.Mesh(
   new THREE.BoxGeometry(1.6, 0.7, 2.4),
-  new THREE.MeshStandardMaterial({
-    color: 0x111111,
-    roughness: 0.2
-  })
+  new THREE.MeshStandardMaterial({ color: 0x111111 })
 );
 cabin.position.y = 0.65;
 cabin.position.z = -0.2;
@@ -79,21 +83,21 @@ const wheelMat = new THREE.MeshStandardMaterial({ color: 0x111111 });
   [-1.2,  1.7],
   [ 1.2, -1.7],
   [-1.2, -1.7]
-].forEach(pos => {
-  const wheel = new THREE.Mesh(wheelGeo, wheelMat);
-  wheel.rotation.z = Math.PI / 2;
-  wheel.position.set(pos[0], -0.35, pos[1]);
-  wheel.castShadow = true;
-  car.add(wheel);
+].forEach(p => {
+  const w = new THREE.Mesh(wheelGeo, wheelMat);
+  w.rotation.z = Math.PI / 2;
+  w.position.set(p[0], -0.35, p[1]);
+  w.castShadow = true;
+  car.add(w);
 });
 
-car.position.y = 0.8;
+car.position.set(0, 0.8, 0);
 scene.add(car);
 
-/* RENDER LOOP */
+/* LOOP */
 function animate() {
   requestAnimationFrame(animate);
-  car.rotation.y += 0.002; // slow realism spin
+  car.rotation.y += 0.005;
   renderer.render(scene, camera);
 }
 animate();
