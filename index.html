@@ -1,9 +1,9 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>Car Test</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="UTF-8" />
+<title>Three.js Car</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
 <style>
 html, body {
@@ -12,21 +12,23 @@ html, body {
   overflow: hidden;
   background: #bfe3b4;
 }
-canvas { display: block; }
+canvas {
+  display: block;
+}
 </style>
 
+<!-- IMPORT MAP (GITHUB PAGES SAFE) -->
 <script type="importmap">
 {
   "imports": {
     "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
-    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+    "three/examples/jsm/": "https://unpkg.com/three@0.160.0/examples/jsm/"
   }
 }
 </script>
 </head>
 
 <body>
-<script type="module" src="script.js"></script>
+<script type="module" src="./script.js"></script>
 </body>
 </html>
-
