@@ -2,33 +2,18 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<title>Three.js Car</title>
+<title>Racing Car – Three.js</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-
-<style>
-html, body {
-  margin: 0;
-  padding: 0;
-  overflow: hidden;
-  background: #bfe3b4;
-}
-canvas {
-  display: block;
-}
-</style>
-
-<!-- IMPORT MAP (GITHUB PAGES SAFE) -->
-<script type="importmap">
-{
-  "imports": {
-    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
-    "three/examples/jsm/": "https://unpkg.com/three@0.160.0/examples/jsm/"
-  }
-}
-</script>
+<link rel="stylesheet" href="style.css" />
 </head>
 
 <body>
-<script type="module" src="./script.js"></script>
+<div id="ui">
+  <div id="speed">00</div>
+  <div id="unit">KM / H</div>
+</div>
+
+<script type="module" src="script.js"></script>
 </body>
 </html>
+
