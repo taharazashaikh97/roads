@@ -8,7 +8,6 @@ scene.background = new THREE.Color(0xbfe3b4);
 /* CAMERA */
 const camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.1, 1000);
 camera.position.set(0, 5, 10);
-camera.lookAt(0, 1, 0);
 
 /* RENDERER */
 const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -23,54 +22,48 @@ scene.add(new THREE.AmbientLight(0xffffff, 0.6));
 const sun = new THREE.DirectionalLight(0xffffff, 1.4);
 sun.position.set(10, 20, 10);
 sun.castShadow = true;
-sun.shadow.mapSize.set(2048, 2048);
 scene.add(sun);
 
 /* GROUND */
 const ground = new THREE.Mesh(
   new THREE.PlaneGeometry(300, 300),
-  new THREE.MeshStandardMaterial({
-    color: 0x9bd37a,
-    roughness: 1
-  })
+  new THREE.MeshStandardMaterial({ color: 0x9bd37a })
 );
 ground.rotation.x = -Math.PI / 2;
 ground.receiveShadow = true;
 scene.add(ground);
 
-/* LOAD SPORTS CAR */
+/* CAR */
+let car;
 const loader = new GLTFLoader();
 
 loader.load(
-  './car.glb',
+  'car.glb',
   (gltf) => {
-    const car = gltf.scene;
-
-    car.traverse(obj => {
-      if (obj.isMesh) {
-        obj.castShadow = true;
-        obj.receiveShadow = true;
-      }
-    });
-
-    // Correct scale for ToyCar model
+    car = gltf.scene;
     car.scale.set(1.8, 1.8, 1.8);
-    car.position.set(0, 0.01, 0);
+    car.position.y = 0.01;
     car.rotation.y = Math.PI;
 
-    scene.add(car);
-
-    // Gentle rotation (presentation style)
-    renderer.setAnimationLoop(() => {
-      car.rotation.y += 0.003;
-      renderer.render(scene, camera);
+    car.traverse(o => {
+      if (o.isMesh) o.castShadow = o.receiveShadow = true;
     });
+
+    scene.add(car);
   },
   undefined,
-  (err) => {
-    console.error('Failed to load car.glb', err);
-  }
+  (e) => console.error('GLB load error:', e)
 );
+
+/* ANIMATION LOOP */
+function animate() {
+  requestAnimationFrame(animate);
+
+  if (car) car.rotation.y += 0.003;
+
+  renderer.render(scene, camera);
+}
+animate();
 
 /* RESIZE */
 window.addEventListener('resize', () => {
