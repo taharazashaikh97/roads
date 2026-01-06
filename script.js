@@ -84,7 +84,7 @@ loader.load('car.glb', gltf => {
 });
 
     console.log('CAR LOADED ✅');
-  }
+  
 );
 
 /* ================= ANIMATE ================= */
@@ -123,4 +123,5 @@ window.addEventListener('resize', () => {
   camera.updateProjectionMatrix();
   renderer.setSize(innerWidth, innerHeight);
 });
+
 
