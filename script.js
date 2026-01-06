@@ -57,28 +57,32 @@ scene.add(ground);
 let car;
 const loader = new GLTFLoader();
 
-loader.load(
-  'car.glb',
-  gltf => {
-    car = gltf.scene;
+loader.load('car.glb', gltf => {
+  car = gltf.scene;
 
-    car.scale.set(50, 50, 50);
-    car.position.set(0, 0, 0);
-    car.rotation.y = Math.PI;
+  car.scale.set(50, 50, 50);
+  car.rotation.y = Math.PI;
 
-    // center model
-    const box = new THREE.Box3().setFromObject(car);
-    const center = box.getCenter(new THREE.Vector3());
-    car.position.sub(center);
+  // center model
+  const box = new THREE.Box3().setFromObject(car);
+  const center = box.getCenter(new THREE.Vector3());
+  car.position.sub(center);
 
-    car.traverse(o => {
-      if (o.isMesh) {
-        o.castShadow = o.receiveShadow = true;
-        o.material.side = THREE.DoubleSide;
-      }
-    });
+  // lift car so it sits on ground
+  const box2 = new THREE.Box3().setFromObject(car);
+  const size = box2.getSize(new THREE.Vector3());
+  car.position.y += size.y / 2;
 
-    scene.add(car);
+  car.traverse(o => {
+    if (o.isMesh) {
+      o.castShadow = o.receiveShadow = true;
+      o.material.side = THREE.DoubleSide;
+    }
+  });
+
+  scene.add(car);
+});
+
     console.log('CAR LOADED ✅');
   }
 );
@@ -119,3 +123,4 @@ window.addEventListener('resize', () => {
   camera.updateProjectionMatrix();
   renderer.setSize(innerWidth, innerHeight);
 });
+
