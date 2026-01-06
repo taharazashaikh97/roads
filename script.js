@@ -6,8 +6,8 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color(0xbfe3b4);
 
 /* CAMERA */
-const camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.1, 1000);
-camera.position.set(0, 5, 10);
+camera.position.set(0, 5, 15);
+camera.lookAt(0, 0, 0);
 
 /* RENDERER */
 const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -35,25 +35,38 @@ scene.add(ground);
 
 /* CAR */
 let car;
-const loader = new GLTFLoader();
 
 loader.load(
   'car.glb',
   (gltf) => {
     car = gltf.scene;
-    car.scale.set(1.8, 1.8, 1.8);
-    car.position.y = 0.01;
-    car.rotation.y = Math.PI;
 
-    car.traverse(o => {
-      if (o.isMesh) o.castShadow = o.receiveShadow = true;
+    /* FORCE VISIBILITY */
+    car.scale.set(50, 50, 50);   // 🔥 BIG SCALE (IMPORTANT)
+    car.position.set(0, 0, 0);
+
+    /* CENTER MODEL */
+    const box = new THREE.Box3().setFromObject(car);
+    const center = box.getCenter(new THREE.Vector3());
+    car.position.sub(center);
+
+    /* MAKE SURE MATERIAL SHOWS */
+    car.traverse(obj => {
+      if (obj.isMesh) {
+        obj.material.side = THREE.DoubleSide;
+        obj.castShadow = true;
+        obj.receiveShadow = true;
+      }
     });
 
     scene.add(car);
+
+    console.log('CAR LOADED ✅');
   },
   undefined,
-  (e) => console.error('GLB load error:', e)
+  (e) => console.error(e)
 );
+
 
 /* ANIMATION LOOP */
 function animate() {
@@ -71,3 +84,4 @@ window.addEventListener('resize', () => {
   camera.updateProjectionMatrix();
   renderer.setSize(innerWidth, innerHeight);
 });
+
