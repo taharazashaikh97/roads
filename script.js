@@ -1,122 +1,77 @@
-import * as THREE from 'three';
-
-/* ================= SCENE ================= */
+// 1. Setup Scene, Camera, and Renderer
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0xcfe9ff);
-scene.fog = new THREE.FogExp2(0xcfe9ff, 0.002);
+scene.background = new THREE.Color(0x87ceeb); // Sky blue
+scene.fog = new THREE.FogExp2(0x87ceeb, 0.01); // Fog that thickens with distance
 
-/* ================= CAMERA ================= */
-const camera = new THREE.PerspectiveCamera(
-  60,
-  window.innerWidth / window.innerHeight,
-  0.1,
-  1000
-);
-camera.position.set(0, 25, 40);
-camera.lookAt(0, 10, -50);
-
-/* ================= RENDERER ================= */
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 document.body.appendChild(renderer.domElement);
 
-/* ================= LIGHTS ================= */
-scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+// 2. Lighting
+const light = new THREE.DirectionalLight(0xffffff, 1);
+light.position.set(10, 50, 10);
+scene.add(light);
+scene.add(new THREE.AmbientLight(0x404040));
 
-const sun = new THREE.DirectionalLight(0xffffff, 1.2);
-sun.position.set(50, 100, 50);
-scene.add(sun);
+// 3. Terrain Generation (Hills and Plains)
+const worldSize = 200;
+const segments = 100;
+const geometry = new THREE.PlaneGeometry(worldSize, worldSize, segments, segments);
 
-/* ================= TERRAIN SETTINGS ================= */
-const TILE_SIZE = 200;
-const SEGMENTS = 100;
-const TILE_COUNT = 5; // number of tiles forward
+// Manipulate vertices to create hills/downfalls
+const vertices = geometry.attributes.position.array;
+for (let i = 0; i < vertices.length; i += 3) {
+    const x = vertices[i];
+    const y = vertices[i + 1];
+    
+    // Simple mathematical noise for hills (Simplex/Perlin noise is better for realism)
+    const elevation = Math.sin(x * 0.1) * Math.cos(y * 0.1) * 5;
+    const plains = Math.sin(x * 0.02) * 2; // Subtle variations
+    
+    vertices[i + 2] = elevation + plains; // Z-axis is height in PlaneGeometry
+}
+geometry.computeVertexNormals();
 
-const tiles = [];
-let cameraZ = 0;
+const material = new THREE.MeshLambertMaterial({ color: 0x3d9944, flatShading: true });
+const terrain = new THREE.Mesh(geometry, material);
+terrain.rotation.x = -Math.PI / 2; // Lay it flat
+scene.add(terrain);
 
-/* ================= HEIGHT FUNCTION ================= */
-function getHeight(x, z) {
-  return (
-    Math.sin(x * 0.02) * 8 +
-    Math.cos(z * 0.02) * 8 +
-    Math.sin((x + z) * 0.01) * 5
-  );
+// 4. The Road
+const roadGeo = new THREE.PlaneGeometry(10, worldSize, 1, segments);
+const roadMat = new THREE.MeshLambertMaterial({ color: 0x333333 });
+const road = new THREE.Mesh(roadGeo, roadMat);
+
+// Offset road slightly above terrain to avoid "Z-fighting" (flickering)
+road.position.y = 0.1; 
+road.rotation.x = -Math.PI / 2;
+scene.add(road);
+
+// 5. Procedural Trees
+function createTree(x, z) {
+    const group = new THREE.Group();
+    const trunk = new THREE.Mesh(new THREE.BoxGeometry(0.5, 2, 0.5), new THREE.MeshLambertMaterial({color: 0x4b3621}));
+    const leaves = new THREE.Mesh(new THREE.ConeGeometry(2, 4, 8), new THREE.MeshLambertMaterial({color: 0x005500}));
+    leaves.position.y = 3;
+    group.add(trunk, leaves);
+    group.position.set(x, 1, z);
+    scene.add(group);
 }
 
-/* ================= CREATE TILE ================= */
-function createTile(zIndex) {
-  const geo = new THREE.PlaneGeometry(
-    TILE_SIZE,
-    TILE_SIZE,
-    SEGMENTS,
-    SEGMENTS
-  );
-  geo.rotateX(-Math.PI / 2);
-
-  const pos = geo.attributes.position;
-
-  for (let i = 0; i < pos.count; i++) {
-    const x = pos.getX(i);
-    const z = pos.getZ(i) + zIndex * TILE_SIZE;
-
-    let y = getHeight(x, z);
-
-    // 🛣️ ROAD CARVING (flat center)
-    const roadWidth = 12;
-    const distFromCenter = Math.abs(x);
-
-    if (distFromCenter < roadWidth) {
-      const falloff = distFromCenter / roadWidth;
-      y *= falloff * falloff; // smooth flatten
-    }
-
-    pos.setY(i, y);
-  }
-
-  geo.computeVertexNormals();
-
-  const mat = new THREE.MeshStandardMaterial({
-    color: 0x6fa86f,
-    roughness: 1
-  });
-
-  const mesh = new THREE.Mesh(geo, mat);
-  mesh.position.z = zIndex * TILE_SIZE;
-
-  scene.add(mesh);
-  tiles.push(mesh);
+// Add trees randomly (avoiding the road)
+for(let i = 0; i < 50; i++) {
+    let x = (Math.random() - 0.5) * worldSize;
+    let z = (Math.random() - 0.5) * worldSize;
+    if (Math.abs(x) > 7) createTree(x, z); // Keep road clear
 }
 
-/* ================= INIT TILES ================= */
-for (let i = 0; i < TILE_COUNT; i++) {
-  createTile(-i);
-}
+camera.position.set(0, 10, 50);
+camera.lookAt(0, 0, 0);
 
-/* ================= ANIMATE ================= */
+// 6. Animation Loop
 function animate() {
-  requestAnimationFrame(animate);
-
-  const speed = 0.5;
-  cameraZ -= speed;
-  camera.position.z = cameraZ;
-  camera.lookAt(0, 8, cameraZ - 40);
-
-  // recycle tiles
-  for (let tile of tiles) {
-    if (tile.position.z - cameraZ > TILE_SIZE) {
-      tile.position.z -= TILE_SIZE * TILE_COUNT;
-    }
-  }
-
-  renderer.render(scene, camera);
+    requestAnimationFrame(animate);
+    renderer.render(scene, camera);
 }
 animate();
-
-/* ================= RESIZE ================= */
-window.addEventListener('resize', () => {
-  camera.aspect = window.innerWidth / window.innerHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
-});
