@@ -6,8 +6,14 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color(0xbfe3b4);
 
 /* ================= CAMERA ================= */
-const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-camera.position.set(0, 5, 10);
+const camera = new THREE.PerspectiveCamera(
+  60,
+  window.innerWidth / window.innerHeight,
+  0.1,
+  2000
+);
+camera.position.set(0, 6, 12);
+camera.lookAt(0, 0, 0);
 
 /* ================= RENDERER ================= */
 const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -16,14 +22,15 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 document.body.appendChild(renderer.domElement);
 
 /* ================= LIGHTS ================= */
-scene.add(new THREE.AmbientLight(0xffffff, 0.8));
-const sun = new THREE.DirectionalLight(0xffffff, 1);
-sun.position.set(10, 20, 10);
+scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+
+const sun = new THREE.DirectionalLight(0xffffff, 1.1);
+sun.position.set(20, 40, 20);
 scene.add(sun);
 
 /* ================= GROUND ================= */
 const ground = new THREE.Mesh(
-  new THREE.PlaneGeometry(50, 50),
+  new THREE.PlaneGeometry(1000, 1000),
   new THREE.MeshStandardMaterial({ color: 0x9bd37a })
 );
 ground.rotation.x = -Math.PI / 2;
@@ -31,60 +38,75 @@ scene.add(ground);
 
 /* ================= CONTROLS ================= */
 const keys = { w:false, a:false, s:false, d:false };
+
 window.addEventListener('keydown', e => {
-  if (keys[e.key.toLowerCase()] !== undefined)
-    keys[e.key.toLowerCase()] = true;
+  const k = e.key.toLowerCase();
+  if (k in keys) keys[k] = true;
 });
+
 window.addEventListener('keyup', e => {
-  if (keys[e.key.toLowerCase()] !== undefined)
-    keys[e.key.toLowerCase()] = false;
+  const k = e.key.toLowerCase();
+  if (k in keys) keys[k] = false;
 });
 
 /* ================= PHYSICS ================= */
 let speed = 0;
-const MAX_SPEED = 0.2;
-const ACCEL = 0.01;
-const TURN = 0.04;
+const MAX_SPEED = 0.25;
+const ACCEL = 0.012;
+const TURN = 0.045;
 const FRICTION = 0.95;
 
 /* ================= LOAD CAR ================= */
 let car;
 const loader = new GLTFLoader();
 
-loader.load('car.glb', gltf => {
-  car = gltf.scene;
+loader.load(
+  'car.glb',
+  gltf => {
+    car = gltf.scene;
 
-  car.scale.set(50, 50, 50);
-  car.rotation.y = Math.PI;
+    // scale for toy car
+    car.scale.set(50, 50, 50);
 
-  const box = new THREE.Box3().setFromObject(car);
-  const center = box.getCenter(new THREE.Vector3());
-  car.position.sub(center);
+    // FIX forward direction (important)
+    car.rotation.y = Math.PI / 2;
 
-  const size = box.getSize(new THREE.Vector3());
-  car.position.y += size.y / 2;
+    // center model
+    const box = new THREE.Box3().setFromObject(car);
+    const center = box.getCenter(new THREE.Vector3());
+    car.position.sub(center);
 
-  scene.add(car);
-});
+    // place on ground
+    const size = box.getSize(new THREE.Vector3());
+    car.position.y += size.y / 2;
+
+    scene.add(car);
+    console.log('✅ CAR READY');
+  },
+  undefined,
+  err => console.error('GLB ERROR', err)
+);
 
 /* ================= ANIMATE ================= */
 function animate() {
   requestAnimationFrame(animate);
 
   if (car) {
-    /* DRIVE */
+    // acceleration
     if (keys.w) speed += ACCEL;
     if (keys.s) speed -= ACCEL;
     speed *= FRICTION;
     speed = THREE.MathUtils.clamp(speed, -MAX_SPEED, MAX_SPEED);
 
+    // steering
     if (keys.a) car.rotation.y += TURN * (speed / MAX_SPEED);
     if (keys.d) car.rotation.y -= TURN * (speed / MAX_SPEED);
 
+    // movement
     car.translateZ(speed);
 
-    /* CAMERA FOLLOW */
-    const camOffset = new THREE.Vector3(0, 4, 8).applyMatrix4(car.matrixWorld);
+    // follow camera
+    const camOffset = new THREE.Vector3(0, 5, 10).applyMatrix4(car.matrixWorld);
     camera.position.lerp(camOffset, 0.1);
     camera.lookAt(car.position);
   }
