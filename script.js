@@ -1,5 +1,4 @@
 import * as THREE from 'three';
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 /* ================= SCENE ================= */
 const scene = new THREE.Scene();
@@ -10,9 +9,9 @@ const camera = new THREE.PerspectiveCamera(
   60,
   window.innerWidth / window.innerHeight,
   0.1,
-  2000
+  5000
 );
-camera.position.set(0, 6, 12);
+camera.position.set(0, 6, 10);
 camera.lookAt(0, 0, 0);
 
 /* ================= RENDERER ================= */
@@ -22,94 +21,54 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 document.body.appendChild(renderer.domElement);
 
 /* ================= LIGHTS ================= */
-scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+scene.add(new THREE.AmbientLight(0xffffff, 0.9));
 
-const sun = new THREE.DirectionalLight(0xffffff, 1.1);
-sun.position.set(20, 40, 20);
+const sun = new THREE.DirectionalLight(0xffffff, 1);
+sun.position.set(50, 100, 50);
 scene.add(sun);
 
-/* ================= GROUND ================= */
-const ground = new THREE.Mesh(
-  new THREE.PlaneGeometry(1000, 1000),
-  new THREE.MeshStandardMaterial({ color: 0x9bd37a })
-);
-ground.rotation.x = -Math.PI / 2;
-scene.add(ground);
+/* ================= ENDLESS GROUND ================= */
+const TILE_SIZE = 200;
+const GRID_RADIUS = 2; // how many tiles around camera
 
-/* ================= CONTROLS ================= */
-const keys = { w:false, a:false, s:false, d:false };
-
-window.addEventListener('keydown', e => {
-  const k = e.key.toLowerCase();
-  if (k in keys) keys[k] = true;
+const groundMaterial = new THREE.MeshStandardMaterial({
+  color: 0x9bd37a
 });
 
-window.addEventListener('keyup', e => {
-  const k = e.key.toLowerCase();
-  if (k in keys) keys[k] = false;
-});
+const tiles = [];
 
-/* ================= PHYSICS ================= */
-let speed = 0;
-const MAX_SPEED = 0.25;
-const ACCEL = 0.012;
-const TURN = 0.045;
-const FRICTION = 0.95;
-
-/* ================= LOAD CAR ================= */
-let car;
-const loader = new GLTFLoader();
-
-loader.load(
-  'car.glb',
-  gltf => {
-    car = gltf.scene;
-
-    // scale for toy car
-    car.scale.set(50, 50, 50);
-
-    // FIX forward direction (important)
-    car.rotation.y = Math.PI / 2;
-
-    // center model
-    const box = new THREE.Box3().setFromObject(car);
-    const center = box.getCenter(new THREE.Vector3());
-    car.position.sub(center);
-
-    // place on ground
-    const size = box.getSize(new THREE.Vector3());
-    car.position.y += size.y / 2;
-
-    scene.add(car);
-    console.log('✅ CAR READY');
-  },
-  undefined,
-  err => console.error('GLB ERROR', err)
-);
+for (let x = -GRID_RADIUS; x <= GRID_RADIUS; x++) {
+  for (let z = -GRID_RADIUS; z <= GRID_RADIUS; z++) {
+    const tile = new THREE.Mesh(
+      new THREE.PlaneGeometry(TILE_SIZE, TILE_SIZE),
+      groundMaterial
+    );
+    tile.rotation.x = -Math.PI / 2;
+    tile.position.set(x * TILE_SIZE, 0, z * TILE_SIZE);
+    scene.add(tile);
+    tiles.push(tile);
+  }
+}
 
 /* ================= ANIMATE ================= */
+let cameraSpeed = 0.05;
+
 function animate() {
   requestAnimationFrame(animate);
 
-  if (car) {
-    // acceleration
-    if (keys.w) speed += ACCEL;
-    if (keys.s) speed -= ACCEL;
-    speed *= FRICTION;
-    speed = THREE.MathUtils.clamp(speed, -MAX_SPEED, MAX_SPEED);
+  // move camera forward
+  camera.position.z -= cameraSpeed;
 
-    // steering
-    if (keys.a) car.rotation.y += TURN * (speed / MAX_SPEED);
-    if (keys.d) car.rotation.y -= TURN * (speed / MAX_SPEED);
+  // reposition tiles to simulate endless plane
+  tiles.forEach(tile => {
+    const dx = tile.position.x - camera.position.x;
+    const dz = tile.position.z - camera.position.z;
 
-    // movement
-    car.translateZ(speed);
-
-    // follow camera
-    const camOffset = new THREE.Vector3(0, 5, 10).applyMatrix4(car.matrixWorld);
-    camera.position.lerp(camOffset, 0.1);
-    camera.lookAt(car.position);
-  }
+    if (dx > TILE_SIZE * GRID_RADIUS) tile.position.x -= TILE_SIZE * (GRID_RADIUS * 2 + 1);
+    if (dx < -TILE_SIZE * GRID_RADIUS) tile.position.x += TILE_SIZE * (GRID_RADIUS * 2 + 1);
+    if (dz > TILE_SIZE * GRID_RADIUS) tile.position.z -= TILE_SIZE * (GRID_RADIUS * 2 + 1);
+    if (dz < -TILE_SIZE * GRID_RADIUS) tile.position.z += TILE_SIZE * (GRID_RADIUS * 2 + 1);
+  });
 
   renderer.render(scene, camera);
 }
