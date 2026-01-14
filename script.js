@@ -3,47 +3,47 @@ import * as THREE from 'three';
 /* ================= SCENE ================= */
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0xcfe9ff);
-scene.fog = new THREE.FogExp2(0xcfe9ff, 0.002);
+scene.fog = new THREE.FogExp2(0xcfe9ff, 0.0025);
 
 /* ================= CAMERA ================= */
-const camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.1, 1500);
-camera.position.set(0, 25, 40);
+const camera = new THREE.PerspectiveCamera(
+  60,
+  window.innerWidth / window.innerHeight,
+  0.1,
+  1500
+);
+camera.position.set(0, 18, 30);
 
 /* ================= RENDERER ================= */
 const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setSize(innerWidth, innerHeight);
+renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 document.body.appendChild(renderer.domElement);
 
 /* ================= LIGHTING ================= */
-scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+scene.add(new THREE.AmbientLight(0xffffff, 0.55));
 
 const sun = new THREE.DirectionalLight(0xffffff, 1.2);
 sun.position.set(100, 200, 100);
+sun.castShadow = true;
+sun.shadow.mapSize.width = 2048;
+sun.shadow.mapSize.height = 2048;
 scene.add(sun);
 
 /* ================= TERRAIN SETTINGS ================= */
 const TILE_SIZE = 220;
-const SEGMENTS = 120;
+const SEGMENTS = 100;
 const TILE_COUNT = 6;
 const ROAD_WIDTH = 12;
 
 const tiles = [];
 let cameraZ = 0;
 
-/* ================= HEIGHT FUNCTION ================= */
-function getHeight(x, z) {
-  // Layered waves for natural hills
-  const largeHills = Math.sin(x * 0.01) * 12 + Math.cos(z * 0.01) * 12;
-  const mediumHills = Math.sin((x + z) * 0.015) * 6;
-  const smallBumps = Math.sin(x * 0.08) * 2 + Math.cos(z * 0.08) * 2;
-
-  return largeHills + mediumHills + smallBumps;
-}
-
 /* ================= ROAD CURVE ================= */
 function roadCurve(z) {
-  return Math.sin(z * 0.004) * 20;
+  return Math.sin(z * 0.004) * 20; // smooth road winding
 }
 
 /* ================= CREATE TILE ================= */
@@ -61,18 +61,15 @@ function createTile(index) {
     const curveX = roadCurve(z);
     const dist = Math.abs(x - curveX);
 
-    let y = getHeight(x, z);
-
-    // road flattening
-    if (dist < ROAD_WIDTH) y *= (dist / ROAD_WIDTH) ** 2;
+    let y = 0; // flat terrain
 
     pos.setY(i, y);
 
-    // height-based color
+    // Height-based color: road / grass / edge
     let color = new THREE.Color();
     if (dist < ROAD_WIDTH) color.set(0x555555); // road
-    else if (y < 2) color.set(0x4f7f38);         // low grass
-    else color.set(0x7fbf6a);                     // high grass
+    else if (dist < ROAD_WIDTH + 6) color.set(0x7aa46a); // edges
+    else color.set(0x6fa86f); // grass
 
     colors.push(color.r, color.g, color.b);
   }
@@ -87,6 +84,8 @@ function createTile(index) {
 
   const mesh = new THREE.Mesh(geo, mat);
   mesh.position.z = index * TILE_SIZE;
+  mesh.receiveShadow = true;
+
   scene.add(mesh);
 
   spawnTrees(mesh, index);
@@ -99,16 +98,17 @@ function spawnTrees(tile, index) {
   const treeMat = new THREE.MeshStandardMaterial({ color: 0x2f5d2f });
   const treeGeo = new THREE.ConeGeometry(1.5, 6, 6);
 
-  for (let i = 0; i < 20; i++) {
+  for (let i = 0; i < 25; i++) {
     const z = index * TILE_SIZE + Math.random() * TILE_SIZE;
     const curveX = roadCurve(z);
     const side = Math.random() > 0.5 ? 1 : -1;
 
     const x = curveX + side * (ROAD_WIDTH + 10 + Math.random() * 40);
-    const y = getHeight(x, z);
+    const y = 0; // flat terrain
 
     const tree = new THREE.Mesh(treeGeo, treeMat);
     tree.position.set(x, y + 3, z);
+    tree.castShadow = true;
     scene.add(tree);
   }
 }
@@ -128,6 +128,7 @@ function animate() {
   camera.position.x = roadCurve(cameraZ) * 0.6;
   camera.lookAt(roadCurve(cameraZ), 6, cameraZ - 50);
 
+  // recycle tiles for endless terrain
   for (let tile of tiles) {
     if (tile.position.z - cameraZ > TILE_SIZE) {
       tile.position.z -= TILE_SIZE * TILE_COUNT;
@@ -142,5 +143,5 @@ animate();
 window.addEventListener('resize', () => {
   camera.aspect = innerWidth / innerHeight;
   camera.updateProjectionMatrix();
-  renderer.setSize(innerWidth, innerHeight);
+  renderer.setSize(window.innerWidth, window.innerHeight);
 });
