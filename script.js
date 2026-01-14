@@ -12,8 +12,8 @@ const camera = new THREE.PerspectiveCamera(
   0.1,
   1000
 );
-camera.position.set(0, 40, 80);
-camera.lookAt(0, 0, 0);
+camera.position.set(0, 25, 40);
+camera.lookAt(0, 10, -50);
 
 /* ================= RENDERER ================= */
 const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -21,56 +21,94 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 document.body.appendChild(renderer.domElement);
 
-/* ================= LIGHT ================= */
-scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+/* ================= LIGHTS ================= */
+scene.add(new THREE.AmbientLight(0xffffff, 0.6));
 
 const sun = new THREE.DirectionalLight(0xffffff, 1.2);
 sun.position.set(50, 100, 50);
 scene.add(sun);
 
-/* ================= TERRAIN ================= */
-const SIZE = 600;
-const SEGMENTS = 200;
+/* ================= TERRAIN SETTINGS ================= */
+const TILE_SIZE = 200;
+const SEGMENTS = 100;
+const TILE_COUNT = 5; // number of tiles forward
 
-const geometry = new THREE.PlaneGeometry(
-  SIZE,
-  SIZE,
-  SEGMENTS,
-  SEGMENTS
-);
-geometry.rotateX(-Math.PI / 2);
+const tiles = [];
+let cameraZ = 0;
 
-const pos = geometry.attributes.position;
-
-for (let i = 0; i < pos.count; i++) {
-  const x = pos.getX(i);
-  const z = pos.getZ(i);
-
-  // Smooth rolling hills (no noise lib)
-  const y =
-    Math.sin(x * 0.02) * 10 +
-    Math.cos(z * 0.02) * 10 +
-    Math.sin((x + z) * 0.01) * 6;
-
-  pos.setY(i, y);
+/* ================= HEIGHT FUNCTION ================= */
+function getHeight(x, z) {
+  return (
+    Math.sin(x * 0.02) * 8 +
+    Math.cos(z * 0.02) * 8 +
+    Math.sin((x + z) * 0.01) * 5
+  );
 }
 
-geometry.computeVertexNormals();
+/* ================= CREATE TILE ================= */
+function createTile(zIndex) {
+  const geo = new THREE.PlaneGeometry(
+    TILE_SIZE,
+    TILE_SIZE,
+    SEGMENTS,
+    SEGMENTS
+  );
+  geo.rotateX(-Math.PI / 2);
 
-const material = new THREE.MeshStandardMaterial({
-  color: 0x6fa86f,
-  roughness: 1
-});
+  const pos = geo.attributes.position;
 
-const terrain = new THREE.Mesh(geometry, material);
-scene.add(terrain);
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i);
+    const z = pos.getZ(i) + zIndex * TILE_SIZE;
+
+    let y = getHeight(x, z);
+
+    // 🛣️ ROAD CARVING (flat center)
+    const roadWidth = 12;
+    const distFromCenter = Math.abs(x);
+
+    if (distFromCenter < roadWidth) {
+      const falloff = distFromCenter / roadWidth;
+      y *= falloff * falloff; // smooth flatten
+    }
+
+    pos.setY(i, y);
+  }
+
+  geo.computeVertexNormals();
+
+  const mat = new THREE.MeshStandardMaterial({
+    color: 0x6fa86f,
+    roughness: 1
+  });
+
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.position.z = zIndex * TILE_SIZE;
+
+  scene.add(mesh);
+  tiles.push(mesh);
+}
+
+/* ================= INIT TILES ================= */
+for (let i = 0; i < TILE_COUNT; i++) {
+  createTile(-i);
+}
 
 /* ================= ANIMATE ================= */
 function animate() {
   requestAnimationFrame(animate);
 
-  // subtle motion for realism
-  terrain.rotation.y += 0.00015;
+  const speed = 0.5;
+  cameraZ -= speed;
+  camera.position.z = cameraZ;
+  camera.lookAt(0, 8, cameraZ - 40);
+
+  // recycle tiles
+  for (let tile of tiles) {
+    if (tile.position.z - cameraZ > TILE_SIZE) {
+      tile.position.z -= TILE_SIZE * TILE_COUNT;
+    }
+  }
 
   renderer.render(scene, camera);
 }
