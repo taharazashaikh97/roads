@@ -1,74 +1,80 @@
 import * as THREE from 'three';
+import SimplexNoise from 'https://cdn.jsdelivr.net/npm/simplex-noise@4.0.1/dist/esm/simplex-noise.js';
 
 /* ================= SCENE ================= */
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0xbfe3b4);
+scene.background = new THREE.Color(0xcfe9ff);
+scene.fog = new THREE.FogExp2(0xcfe9ff, 0.002);
 
 /* ================= CAMERA ================= */
 const camera = new THREE.PerspectiveCamera(
   60,
-  window.innerWidth / window.innerHeight,
+  innerWidth / innerHeight,
   0.1,
-  5000
+  1000
 );
-camera.position.set(0, 6, 10);
+camera.position.set(0, 40, 80);
 camera.lookAt(0, 0, 0);
 
 /* ================= RENDERER ================= */
 const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 document.body.appendChild(renderer.domElement);
 
 /* ================= LIGHTS ================= */
-scene.add(new THREE.AmbientLight(0xffffff, 0.9));
+scene.add(new THREE.AmbientLight(0xffffff, 0.6));
 
-const sun = new THREE.DirectionalLight(0xffffff, 1);
+const sun = new THREE.DirectionalLight(0xffffff, 1.2);
 sun.position.set(50, 100, 50);
 scene.add(sun);
 
-/* ================= ENDLESS GROUND ================= */
-const TILE_SIZE = 200;
-const GRID_RADIUS = 2; // how many tiles around camera
+/* ================= NOISE ================= */
+const noise = new SimplexNoise();
 
-const groundMaterial = new THREE.MeshStandardMaterial({
-  color: 0x9bd37a
-});
+/* ================= TERRAIN ================= */
+const SIZE = 600;
+const SEGMENTS = 200;
 
-const tiles = [];
+const geometry = new THREE.PlaneGeometry(
+  SIZE,
+  SIZE,
+  SEGMENTS,
+  SEGMENTS
+);
 
-for (let x = -GRID_RADIUS; x <= GRID_RADIUS; x++) {
-  for (let z = -GRID_RADIUS; z <= GRID_RADIUS; z++) {
-    const tile = new THREE.Mesh(
-      new THREE.PlaneGeometry(TILE_SIZE, TILE_SIZE),
-      groundMaterial
-    );
-    tile.rotation.x = -Math.PI / 2;
-    tile.position.set(x * TILE_SIZE, 0, z * TILE_SIZE);
-    scene.add(tile);
-    tiles.push(tile);
-  }
+geometry.rotateX(-Math.PI / 2);
+
+const pos = geometry.attributes.position;
+
+for (let i = 0; i < pos.count; i++) {
+  const x = pos.getX(i);
+  const z = pos.getZ(i);
+
+  const hills =
+    noise.noise2D(x * 0.002, z * 0.002) * 25 +
+    noise.noise2D(x * 0.01, z * 0.01) * 4;
+
+  pos.setY(i, hills);
 }
 
-/* ================= ANIMATE ================= */
-let cameraSpeed = 0.05;
+geometry.computeVertexNormals();
 
+const material = new THREE.MeshStandardMaterial({
+  color: 0x6fa86f,
+  roughness: 1,
+  metalness: 0
+});
+
+const terrain = new THREE.Mesh(geometry, material);
+scene.add(terrain);
+
+/* ================= ANIMATE ================= */
 function animate() {
   requestAnimationFrame(animate);
 
-  // move camera forward
-  camera.position.z -= cameraSpeed;
-
-  // reposition tiles to simulate endless plane
-  tiles.forEach(tile => {
-    const dx = tile.position.x - camera.position.x;
-    const dz = tile.position.z - camera.position.z;
-
-    if (dx > TILE_SIZE * GRID_RADIUS) tile.position.x -= TILE_SIZE * (GRID_RADIUS * 2 + 1);
-    if (dx < -TILE_SIZE * GRID_RADIUS) tile.position.x += TILE_SIZE * (GRID_RADIUS * 2 + 1);
-    if (dz > TILE_SIZE * GRID_RADIUS) tile.position.z -= TILE_SIZE * (GRID_RADIUS * 2 + 1);
-    if (dz < -TILE_SIZE * GRID_RADIUS) tile.position.z += TILE_SIZE * (GRID_RADIUS * 2 + 1);
-  });
+  // slow cinematic drift
+  terrain.rotation.y += 0.00015;
 
   renderer.render(scene, camera);
 }
@@ -76,7 +82,9 @@ animate();
 
 /* ================= RESIZE ================= */
 window.addEventListener('resize', () => {
-  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.aspect = innerWidth / innerHeight;
   camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setSize(innerWidth, innerHeight);
 });
+
+
