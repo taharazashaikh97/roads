@@ -7,22 +7,22 @@ scene.fog = new THREE.FogExp2(0xcfe9ff, 0.002);
 
 /* ================= CAMERA ================= */
 const camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.1, 1500);
-camera.position.set(0, 22, 40);
+camera.position.set(0, 25, 40);
 
 /* ================= RENDERER ================= */
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(innerWidth, innerHeight);
-renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 document.body.appendChild(renderer.domElement);
 
 /* ================= LIGHTING ================= */
-scene.add(new THREE.AmbientLight(0xffffff, 0.55));
+scene.add(new THREE.AmbientLight(0xffffff, 0.6));
 
-const sun = new THREE.DirectionalLight(0xffffff, 1.3);
+const sun = new THREE.DirectionalLight(0xffffff, 1.2);
 sun.position.set(100, 200, 100);
 scene.add(sun);
 
-/* ================= TERRAIN CONFIG ================= */
+/* ================= TERRAIN SETTINGS ================= */
 const TILE_SIZE = 220;
 const SEGMENTS = 120;
 const TILE_COUNT = 6;
@@ -31,13 +31,14 @@ const ROAD_WIDTH = 12;
 const tiles = [];
 let cameraZ = 0;
 
-/* ================= NOISE (FAST + SAFE) ================= */
-function noise(x, z) {
-  return (
-    Math.sin(x * 0.02) * 10 +
-    Math.cos(z * 0.02) * 10 +
-    Math.sin((x + z) * 0.01) * 6
-  );
+/* ================= HEIGHT FUNCTION ================= */
+function getHeight(x, z) {
+  // Layered waves for natural hills
+  const largeHills = Math.sin(x * 0.01) * 12 + Math.cos(z * 0.01) * 12;
+  const mediumHills = Math.sin((x + z) * 0.015) * 6;
+  const smallBumps = Math.sin(x * 0.08) * 2 + Math.cos(z * 0.08) * 2;
+
+  return largeHills + mediumHills + smallBumps;
 }
 
 /* ================= ROAD CURVE ================= */
@@ -45,7 +46,7 @@ function roadCurve(z) {
   return Math.sin(z * 0.004) * 20;
 }
 
-/* ================= CREATE TERRAIN TILE ================= */
+/* ================= CREATE TILE ================= */
 function createTile(index) {
   const geo = new THREE.PlaneGeometry(TILE_SIZE, TILE_SIZE, SEGMENTS, SEGMENTS);
   geo.rotateX(-Math.PI / 2);
@@ -60,24 +61,18 @@ function createTile(index) {
     const curveX = roadCurve(z);
     const dist = Math.abs(x - curveX);
 
-    let y = noise(x, z);
+    let y = getHeight(x, z);
 
-    // road carving
-    if (dist < ROAD_WIDTH) {
-      y *= (dist / ROAD_WIDTH) ** 2;
-    }
+    // road flattening
+    if (dist < ROAD_WIDTH) y *= (dist / ROAD_WIDTH) ** 2;
 
     pos.setY(i, y);
 
-    // 🎨 height-based color
+    // height-based color
     let color = new THREE.Color();
-    if (dist < ROAD_WIDTH) {
-      color.set(0x555555); // road
-    } else if (y < 2) {
-      color.set(0x4f7f38); // dark grass
-    } else {
-      color.set(0x7fbf6a); // light grass
-    }
+    if (dist < ROAD_WIDTH) color.set(0x555555); // road
+    else if (y < 2) color.set(0x4f7f38);         // low grass
+    else color.set(0x7fbf6a);                     // high grass
 
     colors.push(color.r, color.g, color.b);
   }
@@ -94,7 +89,6 @@ function createTile(index) {
   mesh.position.z = index * TILE_SIZE;
   scene.add(mesh);
 
-  // 🌲 trees
   spawnTrees(mesh, index);
 
   tiles.push(mesh);
@@ -111,7 +105,7 @@ function spawnTrees(tile, index) {
     const side = Math.random() > 0.5 ? 1 : -1;
 
     const x = curveX + side * (ROAD_WIDTH + 10 + Math.random() * 40);
-    const y = noise(x, z);
+    const y = getHeight(x, z);
 
     const tree = new THREE.Mesh(treeGeo, treeMat);
     tree.position.set(x, y + 3, z);
@@ -119,7 +113,7 @@ function spawnTrees(tile, index) {
   }
 }
 
-/* ================= INIT ================= */
+/* ================= INIT TILES ================= */
 for (let i = 0; i < TILE_COUNT; i++) {
   createTile(-i);
 }
@@ -128,7 +122,8 @@ for (let i = 0; i < TILE_COUNT; i++) {
 function animate() {
   requestAnimationFrame(animate);
 
-  cameraZ -= 0.6;
+  const speed = 0.6;
+  cameraZ -= speed;
   camera.position.z = cameraZ;
   camera.position.x = roadCurve(cameraZ) * 0.6;
   camera.lookAt(roadCurve(cameraZ), 6, cameraZ - 50);
